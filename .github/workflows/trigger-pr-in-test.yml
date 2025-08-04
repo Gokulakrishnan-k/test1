@@ -19,7 +19,8 @@ jobs:
       - name: Debug merge commit SHA
         env:
           MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
-        run: echo "Merge commit SHA: $MERGE_SHA"
+        run: |
+          echo "Merge commit SHA: $MERGE_SHA"
 
       - name: Check merge commit message for [AVO]
         id: check_msg
