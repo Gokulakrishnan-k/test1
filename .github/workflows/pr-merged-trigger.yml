@@ -1,45 +1,50 @@
-name: Trigger PR in test2 on PR merge
+name: Trigger PR in test2
 
 on:
   pull_request:
     types: [closed]
+    branches:
+      - main
 
 jobs:
-  trigger_pr_in_test2:
+  trigger_pr:
     if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
 
     steps:
-      - name: Install GitHub CLI
-        run: |
-          curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
-          sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
-          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
-          sudo apt update
-          sudo apt install gh -y
+      - name: Checkout this repo (test1)
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
 
-      - name: Authenticate GitHub CLI
-        env:
-          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
-        run: echo "$PAT_TOKEN" | gh auth login --with-token
-
-      - name: Create PR in test2 repo
-        env:
-          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
+      - name: Configure git for GitHub CLI
         run: |
           git config --global user.name "github-actions"
           git config --global user.email "github-actions@github.com"
 
-          TARGET_REPO="Gokulakrishnan-k/test2"
-          BRANCH_NAME="auto-pr-from-test1-${{ github.event.pull_request.number }}"
+      - name: Install GitHub CLI
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gh
 
+      - name: Authenticate GitHub CLI
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "${GITHUB_TOKEN}" | gh auth login --with-token
+
+      - name: Clone target repo and create PR branch
+        env:
+          TARGET_REPO: Gokulakrishnan-k/test2
+          BRANCH_NAME: auto-pr-from-test1-${{ github.event.pull_request.number }}
+        run: |
           git clone https://github.com/$TARGET_REPO.git
           cd test2
           git checkout -b $BRANCH_NAME
 
-          # Create empty commit to trigger PR
+          # Optional: Make empty commit to trigger PR
           git commit --allow-empty -m "Trigger PR from test1 PR #${{ github.event.pull_request.number }}"
 
           git push origin $BRANCH_NAME
 
+          # Create PR on target repo
           gh pr create --repo $TARGET_REPO --head $BRANCH_NAME --title "Auto PR triggered by merged PR #${{ github.event.pull_request.number }} in test1" --body "This PR was automatically created after merging PR #${{ github.event.pull_request.number }} in test1."
