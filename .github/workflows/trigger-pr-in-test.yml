@@ -54,28 +54,22 @@ jobs:
             cp "$file" "test2/$file"
           done
 
+      
       - name: Commit and push changes in test2 repo
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           cd test2
           BRANCH_NAME="auto-pr-from-test1-${PR_NUMBER}"
-
-          # Debug info
-          echo "Current directory: $(pwd)"
-          echo "Git config before setting:"
-          git config --list || echo "No git config found"
-
+      
           # Set local git user info to avoid empty ident error
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-
-          echo "Git config after setting:"
-          git config --list
-
+      
           git add .
           git commit -m "Sync changes from test1 PR #${PR_NUMBER}"
           git push origin $BRANCH_NAME
+
 
       - name: Create PR in test2 repo
         env:
