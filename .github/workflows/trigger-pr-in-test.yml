@@ -45,7 +45,6 @@ jobs:
     needs: check_commit_message
     if: needs.check_commit_message.outputs.run_job == 'true'
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout test1 repo (current repo)
         uses: actions/checkout@v3
@@ -59,12 +58,20 @@ jobs:
             sudo apt-get install -y gh
           fi
 
+      - name: Authenticate GitHub CLI
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
+        run: |
+          echo "${GITHUB_TOKEN}" | gh auth login --with-token
+
       - name: Clone test2 repo
         env:
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
-          git clone https://x-access-token:${GITHUB_TOKEN}@github.com/Gokulakrishnan-k/test2.git
-          ls -la test2
+          git clone https://github.com/Gokulakrishnan-k/test2.git
+          cd test2
+          git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/Gokulakrishnan-k/test2.git
+          ls -la
 
       - name: Copy changed files to test2 repo
         env:
@@ -75,17 +82,25 @@ jobs:
           echo "Base SHA: $BASE_SHA"
           echo "Merge commit SHA: $MERGE_SHA"
 
-          cd test2
-          BRANCH_NAME="auto-pr-from-test1-${PR_NUMBER}"
-          git checkout -b $BRANCH_NAME
-          cd ..
-
-          git fetch origin $BASE_SHA
-          git fetch origin $MERGE_SHA
-
           CHANGED_FILES=$(git diff --name-only $BASE_SHA $MERGE_SHA)
           echo "Changed files:"
           echo "$CHANGED_FILES"
+
+          if [ -z "$CHANGED_FILES" ]; then
+            echo "No changed files to copy. Exiting."
+            exit 0
+          fi
+
+          cd test2
+          BRANCH_NAME="auto-pr-from-test1-${PR_NUMBER}"
+
+          if git show-ref --verify --quiet refs/heads/$BRANCH_NAME; then
+            echo "Branch $BRANCH_NAME already exists. Exiting."
+            exit 0
+          fi
+
+          git checkout -b $BRANCH_NAME
+          cd ..
 
           for file in $CHANGED_FILES; do
             echo "Copying $file to test2"
@@ -109,7 +124,6 @@ jobs:
 
       - name: Create PR in test2 repo
         env:
-          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           gh pr create --repo Gokulakrishnan-k/test2 \
