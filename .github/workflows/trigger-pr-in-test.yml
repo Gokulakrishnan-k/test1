@@ -5,26 +5,39 @@ on:
     types: [closed]
 
 jobs:
-  trigger_pr_in_test2:
+  check_commit_message:
     if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
-
+    outputs:
+      run_job: ${{ steps.check_msg.outputs.run_job }}
     steps:
-      - name: Checkout test1 repo (current repo)
+      - name: Checkout repo
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0  # fetch full history to get diffs
+          fetch-depth: 0
 
       - name: Check merge commit message for [AVO]
+        id: check_msg
         env:
           MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
         run: |
           COMMIT_MSG=$(git log -1 --pretty=%B $MERGE_SHA)
           echo "Merge commit message: $COMMIT_MSG"
-          if [[ "$COMMIT_MSG" != *"[AVO]"* ]]; then
-            echo "Merge commit message does not contain [AVO]. Exiting workflow."
-            exit 0
+          if [[ "$COMMIT_MSG" == *"[AVO]"* ]]; then
+            echo "run_job=true" >> $GITHUB_OUTPUT
+          else
+            echo "run_job=false" >> $GITHUB_OUTPUT
           fi
+
+  trigger_pr_in_test2:
+    needs: check_commit_message
+    if: needs.check_commit_message.outputs.run_job == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout test1 repo (current repo)
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
 
       - name: Set up GitHub CLI
         run: |
@@ -54,7 +67,6 @@ jobs:
           git checkout -b $BRANCH_NAME
           cd ..
       
-          # Fetch and diff
           git fetch origin $BASE_SHA
           git fetch origin $MERGE_SHA
       
@@ -75,7 +87,6 @@ jobs:
           cd test2
           BRANCH_NAME="auto-pr-from-test1-${PR_NUMBER}"
       
-          # Set local git user info to avoid empty ident error
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
       
