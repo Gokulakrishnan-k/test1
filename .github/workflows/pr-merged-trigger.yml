@@ -1,50 +1,46 @@
-name: Trigger PR in test2
+name: Trigger PR in test2 on PR merge
 
 on:
   pull_request:
     types: [closed]
-    branches:
-      - main
 
 jobs:
-  trigger_pr:
+  trigger_pr_in_test2:
     if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout this repo (test1)
+      - name: Checkout repo (optional, if needed)
         uses: actions/checkout@v3
-        with:
-          fetch-depth: 1
 
-      - name: Configure git for GitHub CLI
+      - name: Create PR in test2 repo
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
+          # Configure git for GitHub CLI
           git config --global user.name "github-actions"
           git config --global user.email "github-actions@github.com"
 
-      - name: Install GitHub CLI
-        run: |
+          # Install GitHub CLI
           sudo apt-get update
           sudo apt-get install -y gh
 
-      - name: Authenticate GitHub CLI
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: echo "${GITHUB_TOKEN}" | gh auth login --with-token
+          # Authenticate GitHub CLI
+          echo $GITHUB_TOKEN | gh auth login --with-token
 
-      - name: Clone target repo and create PR branch
-        env:
-          TARGET_REPO: Gokulakrishnan-k/test2
-          BRANCH_NAME: auto-pr-from-test1-${{ github.event.pull_request.number }}
-        run: |
+          # Define branch and repo
+          TARGET_REPO="Gokulakrishnan-k/test2"
+          BRANCH_NAME="auto-pr-from-test1-${{ github.event.pull_request.number }}"
+
+          # Clone target repo and create a new branch
           git clone https://github.com/$TARGET_REPO.git
           cd test2
           git checkout -b $BRANCH_NAME
 
-          # Optional: Make empty commit to trigger PR
+          # (Optional) Make some changes or just create an empty commit to trigger PR
           git commit --allow-empty -m "Trigger PR from test1 PR #${{ github.event.pull_request.number }}"
 
           git push origin $BRANCH_NAME
 
-          # Create PR on target repo
+          # Create PR on test2 repo
           gh pr create --repo $TARGET_REPO --head $BRANCH_NAME --title "Auto PR triggered by merged PR #${{ github.event.pull_request.number }} in test1" --body "This PR was automatically created after merging PR #${{ github.event.pull_request.number }} in test1."
