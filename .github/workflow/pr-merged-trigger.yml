@@ -1,4 +1,4 @@
-name: Trigger PR in test2 on PR merge with [AVO] check
+name: Trigger PR in test2 on PR merge
 
 on:
   pull_request:
@@ -10,54 +10,64 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo (optional, if needed)
+      - name: Checkout test1 repo (current repo)
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # fetch full history to get diffs
 
-      - name: Check for [AVO] in merge commit message
-        id: check_avo
+      - name: Set up GitHub CLI
         run: |
-          # Fetch the merge commit message using git
-          COMMIT_SHA=${{ github.event.pull_request.merge_commit_sha }}
-          echo "Merge commit SHA: $COMMIT_SHA"
-          
-          # Fetch the commit message
-          COMMIT_MSG=$(git log -1 --pretty=%B $COMMIT_SHA)
-          echo "Commit message: $COMMIT_MSG"
-
-          # Check if message contains [AVO]
-          if echo "$COMMIT_MSG" | grep -q "\[AVO\]"; then
-            echo "AVO found in commit message"
-            echo "has_avo=true" >> $GITHUB_OUTPUT
-          else
-            echo "AVO not found in commit message"
-            echo "has_avo=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Create PR in test2 repo
-        if: steps.check_avo.outputs.has_avo == 'true'
-        env:
-          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
-        run: |
-          git config --global user.name "github-actions"
-          git config --global user.email "github-actions@github.com"
-
           if ! command -v gh &> /dev/null; then
             sudo apt-get update
             sudo apt-get install -y gh
           fi
 
-          TARGET_REPO="Gokulakrishnan-k/test2"
-          BRANCH_NAME="auto-pr-from-test1-${{ github.event.pull_request.number }}"
+      - name: Clone test2 repo
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
+        run: |
+          git clone https://x-access-token:${GITHUB_TOKEN}@github.com/Gokulakrishnan-k/test2.git
+          ls -la test2
 
-          git clone https://x-access-token:${GITHUB_TOKEN}@github.com/$TARGET_REPO.git
+      - name: Copy changed files to test2 repo
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
           cd test2
 
+          # Create new branch
+          BRANCH_NAME="auto-pr-from-test1-${PR_NUMBER}"
           git checkout -b $BRANCH_NAME
-          git commit --allow-empty -m "Trigger PR from test1 PR #${{ github.event.pull_request.number }}"
 
+          cd ..
+
+          # Get list of changed files between base and head in test1
+          CHANGED_FILES=$(git diff --name-only $BASE_SHA $HEAD_SHA)
+
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+
+          # Copy each changed file to test2 repo
+          for file in $CHANGED_FILES; do
+            echo "Copying $file to test2"
+            # Create directory structure if needed
+            mkdir -p "test2/$(dirname $file)"
+            cp "$file" "test2/$file"
+          done
+
+          cd test2
+          git add .
+          git commit -m "Sync changes from test1 PR #${PR_NUMBER}"
           git push origin $BRANCH_NAME
 
-          gh pr create --repo $TARGET_REPO \
-            --head $BRANCH_NAME \
-            --title "Auto PR triggered by merged PR #${{ github.event.pull_request.number }} in test1" \
-            --body "This PR was automatically created after merging PR #${{ github.event.pull_request.number }} in test1 with [AVO] in commit message."
+      - name: Create PR in test2 repo
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          gh pr create --repo Gokulakrishnan-k/test2 \
+            --head auto-pr-from-test1-${PR_NUMBER} \
+            --title "Auto PR triggered by merged PR #${PR_NUMBER} in test1" \
+            --body "This PR was automatically created after merging PR #${PR_NUMBER} in test1."
