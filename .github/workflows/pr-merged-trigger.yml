@@ -8,7 +8,7 @@ jobs:
   trigger_pr_in_test2:
     if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
-
+    
     steps:
       - name: Checkout repo (optional, if needed)
         uses: actions/checkout@v3
