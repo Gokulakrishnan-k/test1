@@ -23,6 +23,7 @@ jobs:
         id: check_msg
         env:
           MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+        shell: bash
         run: |
           if [ -z "$MERGE_SHA" ]; then
             echo "MERGE_SHA is empty. Exiting with run_job=false"
