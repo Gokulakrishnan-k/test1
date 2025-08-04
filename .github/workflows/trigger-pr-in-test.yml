@@ -15,6 +15,17 @@ jobs:
         with:
           fetch-depth: 0  # fetch full history to get diffs
 
+      - name: Check merge commit message for [AVO]
+        env:
+          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+        run: |
+          COMMIT_MSG=$(git log -1 --pretty=%B $MERGE_SHA)
+          echo "Merge commit message: $COMMIT_MSG"
+          if [[ "$COMMIT_MSG" != *"[AVO]"* ]]; then
+            echo "Merge commit message does not contain [AVO]. Exiting workflow."
+            exit 0
+          fi
+
       - name: Set up GitHub CLI
         run: |
           if ! command -v gh &> /dev/null; then
@@ -71,7 +82,6 @@ jobs:
           git add .
           git commit -m "Sync changes from test1 PR #${PR_NUMBER}"
           git push origin $BRANCH_NAME
-
 
       - name: Create PR in test2 repo
         env:
