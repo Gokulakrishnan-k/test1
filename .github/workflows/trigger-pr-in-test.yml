@@ -35,29 +35,32 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
+          # Create new branch inside test2 repo
           cd test2
-
-          # Create new branch
           BRANCH_NAME="auto-pr-from-test1-${PR_NUMBER}"
           git checkout -b $BRANCH_NAME
-
           cd ..
 
-          # Get list of changed files between base and head in test1
+          # Get list of changed files between base and head in test1 repo
           CHANGED_FILES=$(git diff --name-only $BASE_SHA $HEAD_SHA)
 
           echo "Changed files:"
           echo "$CHANGED_FILES"
 
-          # Copy each changed file to test2 repo
+          # Copy each changed file to test2 repo folder
           for file in $CHANGED_FILES; do
             echo "Copying $file to test2"
-            # Create directory structure if needed
             mkdir -p "test2/$(dirname $file)"
             cp "$file" "test2/$file"
           done
 
+          # Commit and push in test2 repo
           cd test2
+
+          # Configure git user info locally in test2 repo
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
           git add .
           git commit -m "Sync changes from test1 PR #${PR_NUMBER}"
           git push origin $BRANCH_NAME
