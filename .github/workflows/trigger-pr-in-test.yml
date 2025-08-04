@@ -45,6 +45,7 @@ jobs:
     needs: check_commit_message
     if: needs.check_commit_message.outputs.run_job == 'true'
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout test1 repo (current repo)
         uses: actions/checkout@v3
